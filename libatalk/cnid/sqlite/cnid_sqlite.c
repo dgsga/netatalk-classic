@@ -40,6 +40,7 @@
 #include <atalk/volume.h>
 
 
+sqlite3_stmt **ppStmt = NULL;
 // CK static MYSQL_BIND lookup_param[4], lookup_result[5];
 // CK static MYSQL_BIND add_param[4], put_param[5];
 
@@ -67,7 +68,6 @@ static int init_prepared_stmt_lookup(CNID_sqlite_private * db)
 {
 	EC_INIT;
 	char *sql = NULL;
-	sqlite3_stmt **ppStmt = NULL;
 
 #ifdef FIXCK
 	lookup_result[0].buffer_type = MYSQL_TYPE_LONGLONG;
@@ -95,13 +95,18 @@ static int init_prepared_stmt_lookup(CNID_sqlite_private * db)
 	EC_NEG1(asprintf
 		(&sql,
 		 "SELECT Id,Did,Name,DevNo,InodeNo FROM `%s` "
-		 "WHERE (Name=%s AND Did=%ull) OR (DevNo=%ull AND InodeNo=%ull)",
-		 db->cnid_sqlite_voluuid_str,
-		 stmt_param_name, stmt_param_did,
-		 stmt_param_dev, stmt_param_ino));
+		 "WHERE (Name=? AND Did=?) OR (DevNo=? AND InodeNo=?)",
+		 db->cnid_sqlite_voluuid_str));
 	EC_ZERO_LOG(sqlite3_prepare_v2
 		    (db->cnid_lookup_stmt, sql, strlen(sql), ppStmt, NULL));
-// CK	EC_ZERO_LOG(mysql_stmt_bind_param(db->cnid_lookup_stmt, lookup_param));
+	EC_ZERO_LOG(sqlite3_bind_text(db->cnid_lookup_stmt,
+		    1, &stmt_param_name, strlen(stmt_param_name) );
+	EC_ZERO_LOG(sqlite3_bind_value(db->cnid_lookup_stmt,
+		    2, stmt_param_did) );
+	EC_ZERO_LOG(sqlite3_bind_value(db->cnid_lookup_stmt,
+		    3, stmt_param_dev) );
+	EC_ZERO_LOG(sqlite3_bind_value(db->cnid_lookup_stmt,
+		    4, stmt_param_ino) );
 
       EC_CLEANUP:
 	if (sql)
@@ -113,18 +118,26 @@ static int init_prepared_stmt_add(CNID_sqlite_private * db)
 {
 	EC_INIT;
 	char *sql = NULL;
-	sqlite3_stmt **ppStmt = NULL;
 
 // CK	EC_NULL(db->cnid_add_stmt = mysql_stmt_init(db->cnid_sqlite_con));
 	EC_NEG1(asprintf(&sql,
-			 "INSERT INTO `%s` (Name,Did,DevNo,InodeNo) VALUES(%ull,%ull,%ull,%ull)",
+			 "INSERT INTO `%s` (Name,Did,DevNo,InodeNo) VALUES(?,?,?,?,?)",
 			 db->cnid_sqlite_voluuid_str,
 			 stmt_param_name, stmt_param_did,
 			 stmt_param_dev, stmt_param_ino));
 
 	EC_ZERO_LOG(sqlite3_prepare_v2
 		    (db->cnid_lookup_stmt, sql, strlen(sql), ppStmt, NULL));
-// CK	EC_ZERO_LOG(mysql_stmt_bind_param(db->cnid_add_stmt, add_param));
+	EC_ZERO_LOG(sqlite3_bind_value(db->cnid_lookup_stmt,
+		    1, stmt_param_id) );
+	EC_ZERO_LOG(sqlite3_bind_text(db->cnid_lookup_stmt,
+		    2, &stmt_param_name, strlen(stmt_param_name) );
+	EC_ZERO_LOG(sqlite3_bind_value(db->cnid_lookup_stmt,
+		    3, stmt_param_did) );
+	EC_ZERO_LOG(sqlite3_bind_value(db->cnid_lookup_stmt,
+		    4, stmt_param_dev) );
+	EC_ZERO_LOG(sqlite3_bind_value(db->cnid_lookup_stmt,
+		    5, stmt_param_ino) );
 
       EC_CLEANUP:
 	if (sql)
@@ -139,14 +152,21 @@ static int init_prepared_stmt_put(CNID_sqlite_private * db)
 
 // CK	EC_NULL(db->cnid_put_stmt = mysql_stmt_init(db->cnid_sqlite_con));
 	EC_NEG1(asprintf(&sql,
-			 "INSERT INTO `%s` (Id,Name,Did,DevNo,InodeNo) VALUES(%ull,%ull,%ull,%ull,%ull)",
-			 db->cnid_sqlite_voluuid_str,
-			 stmt_param_id, stmt_param_name, stmt_param_did,
-			 stmt_param_dev, stmt_param_ino));
+			 "INSERT INTO `%s` (Id,Name,Did,DevNo,InodeNo) VALUES(?,?,?,?,?)",
+			 db->cnid_sqlite_voluuid_str));
 
 	EC_ZERO_LOG(sqlite3_prepare_v2,
 		    (db->cnid_put_stmt, sql, strlen(sql), ppStmt, NULL));
-// CK	EC_ZERO_LOG(mysql_stmt_bind_param(db->cnid_put_stmt, put_param));
+	EC_ZERO_LOG(sqlite3_bind_value(db->cnid_lookup_stmt,
+		    1, stmt_param_id) );
+	EC_ZERO_LOG(sqlite3_bind_text(db->cnid_lookup_stmt,
+		    2, &stmt_param_name, strlen(stmt_param_name) );
+	EC_ZERO_LOG(sqlite3_bind_value(db->cnid_lookup_stmt,
+		    3, stmt_param_did) );
+	EC_ZERO_LOG(sqlite3_bind_value(db->cnid_lookup_stmt,
+		    4, stmt_param_dev) );
+	EC_ZERO_LOG(sqlite3_bind_value(db->cnid_lookup_stmt,
+		    5, stmt_param_ino) );
 
       EC_CLEANUP:
 	if (sql)
@@ -255,7 +275,7 @@ void cnid_sqlite_close(struct _cnid_db *cdb)
 	return;
 }
 
-int cnid_mysql_update(struct _cnid_db *cdb,
+int cnid_sqlite_update(struct _cnid_db *cdb,
 		      cnid_t id,
 		      const struct stat *st,
 		      cnid_t did, const char *name, size_t len)
@@ -307,13 +327,13 @@ int cnid_mysql_update(struct _cnid_db *cdb,
 
 		if (sqlite3_exec(db->cnid_sqlite_con, db->cnid_put_stmt, NULL, NULL, NULL)) {
 			switch (sqlite3_errcode(db->cnid_sqlite_con)) {
-			case ER_DUP_ENTRY:
-				/*
-				 * Race condition:
-				 * between deletion and insert another process
-				 * may have inserted this entry.
-				 */
-				continue;
+//			case ER_DUP_ENTRY:
+//				/*
+//				 * Race condition:
+//				 * between deletion and insert another process
+//				 * may have inserted this entry.
+//				 */
+//				continue;
 			default:
 				EC_FAIL;
 			}
@@ -373,9 +393,9 @@ cnid_t cnid_sqlite_lookup(struct _cnid_db *cdb,
 			EC_FAIL;
 		}
 	}
-	EC_ZERO_LOG(mysql_stmt_store_result(db->cnid_lookup_stmt));
+	EC_ZERO_LOG(sqlite_stmt_store_result(db->cnid_lookup_stmt));
 	have_result = true;
-	EC_ZERO_LOG(mysql_stmt_bind_result
+	EC_ZERO_LOG(sqlite_stmt_bind_result
 		    (db->cnid_lookup_stmt, lookup_result));
 
 	uint64_t retdev, retino;
@@ -387,24 +407,24 @@ cnid_t cnid_sqlite_lookup(struct _cnid_db *cdb,
 	case 0:
 		/* not found */
 		LOG(log_debug, logtype_cnid,
-		    "cnid_mysql_lookup: name: '%s', did: %u is not in the CNID database",
+		    "cnid_sqlite_lookup: name: '%s', did: %u is not in the CNID database",
 		    name, ntohl(did));
 		errno = CNID_DBD_RES_NOTFOUND;
 		EC_FAIL;
 
 	case 1:
 		/* either both OR clauses matched the same id or only one matched, handled below */
-		EC_ZERO(mysql_stmt_fetch(db->cnid_lookup_stmt));
+		EC_ZERO(sqlite_stmt_fetch(db->cnid_lookup_stmt));
 		break;
 
 	case 2:
 		/* a mismatch, delete both and return not found */
-		while (mysql_stmt_fetch(db->cnid_lookup_stmt) == 0) {
+		while (sqlite_stmt_fetch(db->cnid_lookup_stmt) == 0) {
 			if (cnid_sqlite_delete
 			    (cdb, htonl((cnid_t) lookup_result_id))) {
 				LOG(log_error, logtype_cnid,
 				    "sqlite query error: %s",
-				    mysql_error(db->cnid_sqlite_con));
+				    sqlite_error(db->cnid_sqlite_con));
 				errno = CNID_ERR_DB;
 				EC_FAIL;
 			}
@@ -425,7 +445,7 @@ cnid_t cnid_sqlite_lookup(struct _cnid_db *cdb,
 
 	if (retdid != did || STRCMP(retname, !=, name)) {
 		LOG(log_debug, logtype_cnid,
-		    "cnid_mysql_lookup(CNID hint: %" PRIu32 ", DID: %"
+		    "cnid_sqlite_lookup(CNID hint: %" PRIu32 ", DID: %"
 		    PRIu32
 		    ", name: \"%s\"): server side mv oder reused inode",
 		    ntohl(hint), ntohl(did), name);
@@ -433,7 +453,7 @@ cnid_t cnid_sqlite_lookup(struct _cnid_db *cdb,
 			if (cnid_sqlite_delete(cdb, retid) != 0) {
 				LOG(log_error, logtype_cnid,
 				    "sqlite query error: %s",
-				    mysql_error(db->cnid_sqlite_con));
+				    sqlite_error(db->cnid_sqlite_con));
 				errno = CNID_ERR_DB;
 				EC_FAIL;
 			}
@@ -441,23 +461,23 @@ cnid_t cnid_sqlite_lookup(struct _cnid_db *cdb,
 			EC_FAIL;
 		}
 		LOG(log_debug, logtype_cnid,
-		    "cnid_mysql_lookup: server side mv, got hint, updating");
-		if (cnid_mysql_update(cdb, retid, st, did, name, len) != 0) {
+		    "cnid_sqlite_lookup: server side mv, got hint, updating");
+		if (cnid_sqlite_update(cdb, retid, st, did, name, len) != 0) {
 			LOG(log_error, logtype_cnid,
 			    "sqlite query error: %s",
-			    mysql_error(db->cnid_sqlite_con));
+			    sqlite_error(db->cnid_sqlite_con));
 			errno = CNID_ERR_DB;
 			EC_FAIL;
 		}
 		id = retid;
 	} else if (retdev != dev || retino != ino) {
 		LOG(log_debug, logtype_cnid,
-		    "cnid_mysql_lookup(DID:%u, name: \"%s\"): changed dev/ino",
+		    "cnid_sqlite_lookup(DID:%u, name: \"%s\"): changed dev/ino",
 		    ntohl(did), name);
 		if (cnid_sqlite_delete(cdb, retid) != 0) {
 			LOG(log_error, logtype_cnid,
 			    "sqlite query error: %s",
-			    mysql_error(db->cnid_sqlite_con));
+			    sqlite_error(db->cnid_sqlite_con));
 			errno = CNID_ERR_DB;
 			EC_FAIL;
 		}
@@ -469,16 +489,16 @@ cnid_t cnid_sqlite_lookup(struct _cnid_db *cdb,
 	}
 
       EC_CLEANUP:
-	LOG(log_debug, logtype_cnid, "cnid_mysql_lookup: id: %" PRIu32,
+	LOG(log_debug, logtype_cnid, "cnid_sqlite_lookup: id: %" PRIu32,
 	    ntohl(id));
 	if (have_result)
-		mysql_stmt_free_result(db->cnid_lookup_stmt);
+		sqlite_stmt_free_result(db->cnid_lookup_stmt);
 	if (ret != 0)
 		id = CNID_INVALID;
 	return id;
 }
 
-cnid_t cnid_mysql_add(struct _cnid_db *cdb,
+cnid_t cnid_sqlite_add(struct _cnid_db *cdb,
 		      const struct stat *st,
 		      cnid_t did,
 		      const char *name, size_t len, cnid_t hint)
@@ -492,29 +512,29 @@ cnid_t cnid_mysql_add(struct _cnid_db *cdb,
 
 	if (!cdb || !(db = cdb->cnid_db_private) || !st || !name) {
 		LOG(log_error, logtype_cnid,
-		    "cnid_mysql_add: Parameter error");
+		    "cnid_sqlite_add: Parameter error");
 		errno = CNID_ERR_PARAM;
 		EC_FAIL;
 	}
 
 	if (len > MAXPATHLEN) {
 		LOG(log_error, logtype_cnid,
-		    "cnid_mysql_add: Path name is too long");
+		    "cnid_sqlite_add: Path name is too long");
 		errno = CNID_ERR_PATH;
 		EC_FAIL;
 	}
 
 	uint64_t dev = st->st_dev;
 	uint64_t ino = st->st_ino;
-	db->cnid_mysql_hint = hint;
+	db->cnid_sqlite_hint = hint;
 
 	LOG(log_maxdebug, logtype_cnid,
-	    "cnid_mysql_add(did: %" PRIu32 ", name: \"%s\", hint: %" PRIu32
+	    "cnid_sqlite_add(did: %" PRIu32 ", name: \"%s\", hint: %" PRIu32
 	    "): START", ntohl(did), name, ntohl(hint));
 
 	do {
 		if ((id =
-		     cnid_mysql_lookup(cdb, st, did, name,
+		     cnid_sqlite_lookup(cdb, st, did, name,
 				       len)) == CNID_INVALID) {
 			if (errno == CNID_ERR_DB)
 				EC_FAIL;
@@ -522,14 +542,14 @@ cnid_t cnid_mysql_add(struct _cnid_db *cdb,
 			 * If the CNID set overflowed before (CNID_MYSQL_FLAG_DEPLETED)
 			 * ignore the CNID "hint" taken from the AppleDouble file
 			 */
-			if (!db->cnid_mysql_hint
+			if (!db->cnid_sqlite_hint
 			    || (db->
-				cnid_mysql_flags &
+				cnid_sqlite_flags &
 				CNID_MYSQL_FLAG_DEPLETED)) {
 				stmt = db->cnid_add_stmt;
 			} else {
 				stmt = db->cnid_put_stmt;
-				stmt_param_id = ntohl(db->cnid_mysql_hint);
+				stmt_param_id = ntohl(db->cnid_sqlite_hint);
 			}
 			strncpy(stmt_param_name, name,
 				sizeof(stmt_param_name));
@@ -538,8 +558,8 @@ cnid_t cnid_mysql_add(struct _cnid_db *cdb,
 			stmt_param_dev = dev;
 			stmt_param_ino = ino;
 
-			if (mysql_stmt_execute(stmt)) {
-				switch (mysql_stmt_errno(stmt)) {
+			if (sqlite_stmt_execute(stmt)) {
+				switch (sqlite_stmt_errno(stmt)) {
 				case ER_DUP_ENTRY:
 					break;
 				case CR_SERVER_LOST:
@@ -554,12 +574,12 @@ cnid_t cnid_mysql_add(struct _cnid_db *cdb,
 				 * between lookup and insert another process may have inserted
 				 * this entry.
 				 */
-				if (db->cnid_mysql_hint)
-					db->cnid_mysql_hint = CNID_INVALID;
+				if (db->cnid_sqlite_hint)
+					db->cnid_sqlite_hint = CNID_INVALID;
 				continue;
 			}
 
-			lastid = mysql_stmt_insert_id(stmt);
+			lastid = sqlite_stmt_insert_id(stmt);
 
 			if (lastid > 0xffffffff) {
 				/* CNID set ist depleted, restart from scratch */
@@ -573,16 +593,16 @@ cnid_t cnid_mysql_add(struct _cnid_db *cdb,
 					 db->cnid_sqlite_voluuid_str,
 					 db->cnid_sqlite_voluuid_str,
 					 db->cnid_sqlite_voluuid_str));
-				db->cnid_mysql_flags |=
+				db->cnid_sqlite_flags |=
 				    CNID_MYSQL_FLAG_DEPLETED;
 				hint = CNID_INVALID;
 				do {
 					result =
-					    mysql_store_result(db->
+					    sqlite_store_result(db->
 							       cnid_sqlite_con);
 					if (result)
-						mysql_free_result(result);
-				} while (mysql_next_result
+						sqlite_free_result(result);
+				} while (sqlite_next_result
 					 (db->cnid_sqlite_con) == 0);
 				continue;
 			}
@@ -593,15 +613,15 @@ cnid_t cnid_mysql_add(struct _cnid_db *cdb,
 	} while (id == CNID_INVALID);
 
       EC_CLEANUP:
-	LOG(log_debug, logtype_cnid, "cnid_mysql_add: id: %" PRIu32,
+	LOG(log_debug, logtype_cnid, "cnid_sqlite_add: id: %" PRIu32,
 	    ntohl(id));
 
 	if (result)
-		mysql_free_result(result);
+		sqlite_free_result(result);
 	return id;
 }
 
-cnid_t cnid_mysql_get(struct _cnid_db *cdb, cnid_t did, const char *name,
+cnid_t cnid_sqlite_get(struct _cnid_db *cdb, cnid_t did, const char *name,
 		      size_t len)
 {
 	EC_INIT;
@@ -612,20 +632,20 @@ cnid_t cnid_mysql_get(struct _cnid_db *cdb, cnid_t did, const char *name,
 
 	if (!cdb || !(db = cdb->cnid_db_private) || !name) {
 		LOG(log_error, logtype_cnid,
-		    "cnid_mysql_get: Parameter error");
+		    "cnid_sqlite_get: Parameter error");
 		errno = CNID_ERR_PARAM;
 		EC_FAIL;
 	}
 
 	if (len > MAXPATHLEN) {
 		LOG(log_error, logtype_cnid,
-		    "cnid_mysql_get: name is too long");
+		    "cnid_sqlite_get: name is too long");
 		errno = CNID_ERR_PATH;
 		return CNID_INVALID;
 	}
 
 	LOG(log_debug, logtype_cnid,
-	    "cnid_mysql_get(did: %" PRIu32 ", name: \"%s\"): START",
+	    "cnid_sqlite_get(did: %" PRIu32 ", name: \"%s\"): START",
 	    ntohl(did), name);
 
 	EC_NEG1(cnid_sqlite_execute(db->cnid_sqlite_con,
@@ -634,7 +654,7 @@ cnid_t cnid_mysql_get(struct _cnid_db *cdb, cnid_t did, const char *name,
 				    db->cnid_sqlite_voluuid_str,
 				    name, ntohl(did)));
 
-	if ((result = mysql_store_result(db->cnid_sqlite_con)) == NULL) {
+	if ((result = sqlite_store_result(db->cnid_sqlite_con)) == NULL) {
 		LOG(log_error, logtype_cnid, "sqlite query error: %s",
 		    mysql_error(db->cnid_sqlite_con));
 		errno = CNID_ERR_DB;
