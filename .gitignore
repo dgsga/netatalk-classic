@@ -28,3 +28,4 @@ autoscan.log
 *~
 *.o
 test-driver
+patches
