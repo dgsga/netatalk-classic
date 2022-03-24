@@ -294,7 +294,7 @@ void cnid_sqlite_close(struct _cnid_db *cdb)
 int cnid_sqlite_update(struct _cnid_db *cdb,
 		      cnid_t id,
 		      const struct stat *st,
-		      cnid_t did, const char *name, size_t len)
+		      const cnid_t did, char *name, size_t len)
 {
 	EC_INIT;
 	CNID_sqlite_private *db;
@@ -363,7 +363,7 @@ int cnid_sqlite_update(struct _cnid_db *cdb,
 
 cnid_t cnid_sqlite_lookup(struct _cnid_db *cdb,
 			  const struct stat *st,
-			  cnid_t did, const char *name, size_t len)
+			  const cnid_t did, char *name, const size_t len)
 {
 	EC_INIT;
 
@@ -544,7 +544,7 @@ cnid_t cnid_sqlite_add(struct _cnid_db *cdb,
 
 	do {
 		if ((id =
-		     cnid_sqlite_lookup(cdb, st, did, name,
+		     cnid_sqlite_lookup(cdb, st, did, (char *) name,
 				       len)) == CNID_INVALID) {
 			if (errno == CNID_ERR_DB)
 				EC_FAIL;
@@ -602,6 +602,7 @@ cnid_t cnid_sqlite_add(struct _cnid_db *cdb,
 				db->cnid_sqlite_flags |=
 				    CNID_SQLITE_FLAG_DEPLETED;
 				hint = CNID_INVALID;
+#if 0 // again, really wrong
 				do {
 					result =
 					    sqlite_store_result(db->
@@ -611,6 +612,7 @@ cnid_t cnid_sqlite_add(struct _cnid_db *cdb,
 				} while (sqlite_next_result
 					 (db->cnid_sqlite_con) == 0);
 				continue;
+#endif
 			}
 
 			/* Finally assign our result */
@@ -622,21 +624,19 @@ cnid_t cnid_sqlite_add(struct _cnid_db *cdb,
 	LOG(log_debug, logtype_cnid, "cnid_sqlite_add: id: %" PRIu32,
 	    ntohl(id));
 
-	if (result)
-		sqlite_free_result(result);
 	return id;
 }
 
-cnid_t cnid_sqlite_get(struct _cnid_db *cdb, cnid_t did, const char *name,
-		      size_t len)
+cnid_t cnid_sqlite_get(struct _cnid_db *cdb, const cnid_t did, char *name,
+		      const size_t len)
 {
 	EC_INIT;
 	CNID_sqlite_private *db;
 	cnid_t id = CNID_INVALID;
-	MYSQL_RES *result = NULL;
-	MYSQL_ROW row;
+	char *sql = NULL;
+	sqlite3_stmt *transient_stmt = NULL;
 
-	if (!cdb || !(db = cdb->cnid_db_private) || !name) {
+	if (!cdb || !(db = cdb->_private) || !name) {
 		LOG(log_error, logtype_cnid,
 		    "cnid_sqlite_get: Parameter error");
 		errno = CNID_ERR_PARAM;
@@ -654,72 +654,78 @@ cnid_t cnid_sqlite_get(struct _cnid_db *cdb, cnid_t did, const char *name,
 	    "cnid_sqlite_get(did: %" PRIu32 ", name: \"%s\"): START",
 	    ntohl(did), name);
 
-	EC_NEG1(cnid_sqlite_execute(db->cnid_sqlite_con,
-				    "SELECT Id FROM `%s` "
-				    "WHERE Name='%s' AND Did=%" PRIu32,
-				    db->cnid_sqlite_voluuid_str,
-				    name, ntohl(did)));
+        EC_NEG1(asprintf
+                (&sql,
+		  "SELECT Id FROM `%s` WHERE Name='%s' AND Did=?",
+		  db->cnid_sqlite_voluuid_str, name) );
+        EC_ZERO_LOG(sqlite3_prepare_v2
+                    (db->cnid_sqlite_con, sql, strlen(sql), &transient_stmt, NULL));
+        EC_ZERO_LOG(sqlite3_bind_int64(transient_stmt,
+                    1, ntohl(did) ) );
 
-	if ((result = sqlite_store_result(db->cnid_sqlite_con)) == NULL) {
-		LOG(log_error, logtype_cnid, "sqlite query error: %s",
-		    mysql_error(db->cnid_sqlite_con));
-		errno = CNID_ERR_DB;
-		EC_FAIL;
-	}
+        if (sqlite3_step(transient_stmt) != SQLITE_ROW) {
+                if (sqlite3_errcode(db->cnid_sqlite_con) != 0) {
+                        LOG(log_error, logtype_cnid,
+                            "sqlite query error: %s",
+                            sqlite3_errmsg(db->cnid_sqlite_con));
+                        EC_FAIL;
+                }
+        }
 
-	if (mysql_num_rows(result)) {
-		row = mysql_fetch_row(result);
-		id = htonl(atoi(row[0]));
-	}
+	id = htonl(sqlite3_column_int64(transient_stmt, 1));
 
       EC_CLEANUP:
 	LOG(log_debug, logtype_cnid, "cnid_sqlite_get: id: %" PRIu32,
 	    ntohl(id));
 
-	if (result)
-		mysql_free_result(result);
+	if (transient_stmt)
+		sqlite3_finalize(transient_stmt);
 
 	return id;
 }
 
-char *cnid_mysql_resolve(struct _cnid_db *cdb, cnid_t * id, void *buffer,
+char *cnid_sqlite_resolve(struct _cnid_db *cdb, cnid_t * id, void *buffer,
 			 size_t len)
 {
 	EC_INIT;
+	char *sql = NULL;
+	sqlite3_stmt *transient_stmt = NULL;
 	CNID_sqlite_private *db;
-	MYSQL_RES *result = NULL;
-	MYSQL_ROW row;
 
-	if (!cdb || !(db = cdb->cnid_db_private)) {
+	if (!cdb || !(db = cdb->_private)) {
 		LOG(log_error, logtype_cnid,
 		    "cnid_sqlite_get: Parameter error");
 		errno = CNID_ERR_PARAM;
 		EC_FAIL;
 	}
 
-	EC_NEG1(cnid_sqlite_execute(db->cnid_sqlite_con,
-				    "SELECT Did,Name FROM `%s` WHERE Id=%"
-				    PRIu32, db->cnid_sqlite_voluuid_str,
-				    ntohl(*id)));
+        EC_NEG1(asprintf
+                (&sql,
+		  "SELECT Did,Name FROM `%s` WHERE Id=?",
+		  db->cnid_sqlite_voluuid_str) );
 
-	EC_NULL(result = mysql_store_result(db->cnid_sqlite_con));
+        EC_ZERO_LOG(sqlite3_prepare_v2
+                    (db->cnid_sqlite_con, sql, strlen(sql), &transient_stmt, NULL));
+        EC_ZERO_LOG(sqlite3_bind_int64(transient_stmt,
+                    1, ntohl(*id) ) );
 
-	if (mysql_num_rows(result) != 1)
+        if (sqlite3_step(transient_stmt) != SQLITE_ROW) {
 		EC_FAIL;
+        }
 
-	row = mysql_fetch_row(result);
-
-	*id = htonl(atoi(row[0]));
-	strncpy(buffer, row[1], len);
+        *id = htonl(sqlite3_column_int64(transient_stmt, 1));
+	strncpy(buffer, sqlite3_column_text(transient_stmt, 2), len);
 
       EC_CLEANUP:
-	if (result)
-		mysql_free_result(result);
+	if (transient_stmt)
+		sqlite3_finalize(transient_stmt);
 
+#if 0 // handle this CK
 	if (ret != 0) {
 		*id = CNID_INVALID;
 		return NULL;
 	}
+#endif
 	return buffer;
 }
 
@@ -730,67 +736,60 @@ int cnid_sqlite_getstamp(struct _cnid_db *cdb, void *buffer,
 			const size_t len)
 {
 	EC_INIT;
+	char *sql = NULL;
+	sqlite3_stmt *transient_stmt = NULL;
 	CNID_sqlite_private *db;
-	MYSQL_RES *result = NULL;
-	MYSQL_ROW row;
 
-	if (!cdb || !(db = cdb->cnid_db_private)) {
+	if (!cdb || !(db = cdb->_private)) {
 		LOG(log_error, logtype_cnid, "cnid_find: Parameter error");
 		errno = CNID_ERR_PARAM;
 		return CNID_INVALID;
 	}
 
-	if (!buffer)
-		EC_EXIT_STATUS(0);
-
-	if (cnid_sqlite_execute(db->cnid_sqlite_con,
-				"SELECT Stamp FROM volumes WHERE VolPath='%s'",
-				cdb->cnid_db_vol->v_path)) {
-		if (mysql_errno(db->cnid_sqlite_con) != ER_DUP_ENTRY) {
-			LOG(log_error, logtype_cnid,
-			    "sqlite query error: %s",
-			    mysql_error(db->cnid_sqlite_con));
-			EC_FAIL;
-		}
+	if (!buffer) {
+		LOG(log_error, logtype_cnid, "cnid_getstamp: bad buffer");
+		return CNID_INVALID;
 	}
 
-	if ((result = mysql_store_result(db->cnid_sqlite_con)) == NULL) {
-		LOG(log_error, logtype_cnid, "sqlite query error: %s",
-		    mysql_error(db->cnid_sqlite_con));
-		errno = CNID_ERR_DB;
-		EC_FAIL;
-	}
-	if (!mysql_num_rows(result)) {
+        EC_NEG1(asprintf
+                (&sql,
+                  "SELECT Stamp FROM volumes WHERE VolPath='%s'",
+                                cdb->cnid_db_vol->v_path)); 
+
+        EC_ZERO_LOG(sqlite3_prepare_v2
+                    (db->cnid_sqlite_con, sql, strlen(sql), &transient_stmt, NULL));
+
+        if (sqlite3_step(transient_stmt) != SQLITE_ROW) {
 		LOG(log_error, logtype_cnid,
 		    "Can't get DB stamp for volumes \"%s\"",
 		    cdb->cnid_db_vol->v_path);
-		EC_FAIL;
-	}
-	row = mysql_fetch_row(result);
-	memcpy(buffer, row[0], len);
+                EC_FAIL;
+        }
+
+        strncpy(buffer, sqlite3_column_text(transient_stmt, 1), len);
 
       EC_CLEANUP:
-	if (result)
-		mysql_free_result(result);
+	if (transient_stmt)
+		sqlite3_finalize(transient_stmt);
 	EC_EXIT;
 }
 
 
-int cnid_mysql_find(struct _cnid_db *cdb, const char *name, size_t namelen,
+int cnid_sqlite_find(struct _cnid_db *cdb, const char *name, size_t namelen,
 		    void *buffer, size_t buflen)
 {
 	LOG(log_error, logtype_cnid,
-	    "cnid_mysql_find(\"%s\"): not supported with MySQL CNID backend",
+	    "cnid_sqlite_find(\"%s\"): not supported with sqlite CNID backend",
 	    name);
 	return -1;
 }
 
 cnid_t cnid_sqlite_rebuild_add(struct _cnid_db *cdb, const struct stat *st,
-			      cnid_t did, const char *name, size_t len,
+			      const cnid_t did, char *name, const size_t len,
 			      cnid_t hint)
 {
 	LOG(log_error, logtype_cnid,
-	    "cnid_sqlite_rebuild_add(\"%s\"): not supported with MySQL CNID backend",
+	    "cnid_sqlite_rebuild_add(\"%s\"): not supported with sqlite CNID backend",
 	    name);
 	return CNID_INVALID;
 }
@@ -799,9 +798,8 @@ int cnid_sqlite_wipe(struct _cnid_db *cdb)
 {
 	EC_INIT;
 	CNID_sqlite_private *db;
-	MYSQL_RES *result = NULL;
 
-	if (!cdb || !(db = cdb->cnid_db_private)) {
+	if (!cdb || !(db = cdb->_private)) {
 		LOG(log_error, logtype_cnid, "cnid_wipe: Parameter error");
 		errno = CNID_ERR_PARAM;
 		return -1;
@@ -819,17 +817,12 @@ int cnid_sqlite_wipe(struct _cnid_db *cdb)
 				    db->cnid_sqlite_voluuid_str,
 				    db->cnid_sqlite_voluuid_str));
 
-	do {
-		result = mysql_store_result(db->cnid_sqlite_con);
-		if (result)
-			mysql_free_result(result);
-	} while (mysql_next_result(db->cnid_sqlite_con) == 0);
 
       EC_CLEANUP:
 	EC_EXIT;
 }
 
-static struct _cnid_db *cnid_sqlite_new(struct vol *vol)
+static struct _cnid_db *cnid_sqlite_new(const char *volpath)
 {
 	struct _cnid_db *cdb;
 
@@ -838,8 +831,13 @@ static struct _cnid_db *cnid_sqlite_new(struct vol *vol)
 					sizeof(struct _cnid_db))) == NULL)
 		return NULL;
 
-	cdb->cnid_db_vol = vol;
-	cdb->cnid_db_flags = CNID_FLAG_PERSISTENT | CNID_FLAG_LAZY_INIT;
+        if ((cdb->volpath = strdup(volpath)) == NULL) {
+                free(cdb);
+                return NULL;
+        }
+
+	cdb->flags = CNID_FLAG_PERSISTENT | CNID_FLAG_LAZY_INIT;
+
 	cdb->cnid_add = cnid_sqlite_add;
 	cdb->cnid_delete = cnid_sqlite_delete;
 	cdb->cnid_get = cnid_sqlite_get;
@@ -851,7 +849,7 @@ static struct _cnid_db *cnid_sqlite_new(struct vol *vol)
 	cdb->cnid_update = cnid_sqlite_update;
 	cdb->cnid_rebuild_add = cnid_sqlite_rebuild_add;
 	cdb->cnid_close = cnid_sqlite_close;
-	cdb->cnid_wipe = cnid_sqlite_wipe;
+//	cdb->cnid_wipe = cnid_sqlite_wipe;
 	return cdb;
 }
 
@@ -877,9 +875,9 @@ struct _cnid_db *cnid_sqlite_open(struct cnid_open_args *args)
 	EC_INIT;
 	CNID_sqlite_private *db = NULL;
 	struct _cnid_db *cdb = NULL;
-	MYSQL_RES *result = NULL;
+	char *sql = NULL;
 	u_int64_t row;
-	struct vol *vol = args->cnid_args_vol;
+	const char *vol = args->dir;
 
 	EC_NULL(cdb = cnid_sqlite_new(vol));
 	EC_NULL(db =
@@ -887,9 +885,6 @@ struct _cnid_db *cnid_sqlite_open(struct cnid_open_args *args)
 					       sizeof
 					       (CNID_sqlite_private)));
 	cdb->_private = db;
-
-	EC_NULL(db->cnid_sqlite_voluuid_str =
-		uuid_strip_dashes(vol->v_uuid));
 
 	/* Initialize and connect to sqlite3 database */
 	sqlite3_initialize();
@@ -932,12 +927,14 @@ struct _cnid_db *cnid_sqlite_open(struct cnid_open_args *args)
                     1, db->cnid_sqlite_voluuid_str,
 		    strlen(db->cnid_sqlite_voluuid_str), SQLITE_STATIC) );
         EC_ZERO_LOG(sqlite3_bind_text(transient_stmt,
-                    2, vol->v_path,
-		    strlen(vol->v_path), SQLITE_STATIC) );
+                    2, vol,
+		    strlen(vol), SQLITE_STATIC) );
         EC_ZERO_LOG(sqlite3_bind_text(transient_stmt,
                     3, stamp,
 		    strlen(stamp), SQLITE_STATIC) );
 
+	sqlite3_step(transient_stmt);
+#if 0 // CK must figure out how to check for failed insert
 	if (sqlite3_step(transient_stmt)) {
 		if (mysql_errno(db->cnid_sqlite_con) != ER_DUP_ENTRY) {
 			LOG(log_error, logtype_cnid,
@@ -946,7 +943,10 @@ struct _cnid_db *cnid_sqlite_open(struct cnid_open_args *args)
 			EC_FAIL;
 		}
 	}
+#endif
+	sqlite3_finalize(transient_stmt);
 
+#if 0 // CK FIX!
 	/*
 	 * Check whether CNID set overflowed before.
 	 * If that's the case, in cnid_sqlite_add() we'll ignore the CNID
@@ -973,6 +973,7 @@ struct _cnid_db *cnid_sqlite_open(struct cnid_open_args *args)
 	}
 	mysql_free_result(result);
 	result = NULL;
+#endif
 
 	/* Create volume table */
 	if (cnid_sqlite_execute(db->cnid_sqlite_con,
@@ -994,11 +995,12 @@ struct _cnid_db *cnid_sqlite_open(struct cnid_open_args *args)
 
 	LOG(log_debug, logtype_cnid,
 	    "Finished initializing sqlite CNID module for volume '%s'",
-	    vol->v_path);
+	    vol);
 
       EC_CLEANUP:
-	if (result)
-		mysql_free_result(result);
+        if (transient_stmt)
+                sqlite3_finalize(transient_stmt);
+
 	if (ret != 0) {
 		if (cdb)
 			free(cdb);
