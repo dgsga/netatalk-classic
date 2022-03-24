@@ -803,6 +803,7 @@ struct _cnid_db *cnid_sqlite_open(struct cnid_open_args *args)
 	struct _cnid_db *cdb = NULL;
 	char *sql = NULL;
 	const char *vol = args->dir;
+	sqlite3_stmt *transient_stmt = NULL;
 
 	EC_NULL(cdb = cnid_sqlite_new(vol));
 	EC_NULL(db =
@@ -835,7 +836,6 @@ struct _cnid_db *cnid_sqlite_open(struct cnid_open_args *args)
 
 	/* Create a blob.  The MySQL code used an escape string function,
            but we're going to use a prepared statement */
-	sqlite3_stmt *transient_stmt = NULL;
 	time_t now = time(NULL);
 	char stamp[8];
 	memset(stamp, 0, 8);
