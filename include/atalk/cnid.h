@@ -50,6 +50,7 @@
  */
 struct _cnid_db {
     u_int32_t flags;             /* Flags describing some CNID backend aspects. */
+    struct vol *cnid_db_vol;	/* CK backported from -3 THIS IS WRONG */
     char *volpath;               /* Volume path this particular CNID db refers to. */
     void *_private;              /* back-end speficic data */
 

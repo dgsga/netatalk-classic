@@ -64,54 +64,10 @@ static unsigned long lookup_result_name_len;
 static u_int64_t lookup_result_dev;
 static u_int64_t lookup_result_ino;
 
-static int vasprintf(char **ret, const char *fmt, va_list ap)
-{
-    int n, size = 64;
-    char *p, *np;
-
-    if ((p = malloc(size)) == NULL)
-        return -1;
-
-    while (1) {
-        /* Try to print in the allocated space. */
-        n = vsnprintf(p, size, fmt, ap);
-        /* If that worked, return the string. */
-        if (n > -1 && n < size) {
-            *ret = p;
-            return n;
-        }
-        /* Else try again with more space. */
-        if (n > -1)    /* glibc 2.1 */
-            size = n+1; /* precisely what is needed */
-        else           /* glibc 2.0 */
-            size *= 2;  /* twice the old size */
-        if ((np = realloc (p, size)) == NULL) {
-            free(p);
-            *ret = NULL;
-            return -1;
-        } else {
-            p = np;
-        }
-    }
-}
-
-static int asprintf(char **strp, const char *fmt, ...)
-{
-    va_list ap;
-    int len;
-
-    va_start(ap, fmt);
-    len = vasprintf(strp, fmt, ap);
-    va_end(ap);
-
-    return len;
-}
-
 static int init_prepared_stmt_lookup(CNID_sqlite_private * db)
 {
 	EC_INIT;
 	char *sql = NULL;
-	int code;
 
 	EC_ZERO(sqlite3_finalize(db->cnid_lookup_stmt));
 	EC_NEG1(asprintf
@@ -138,7 +94,7 @@ static int init_prepared_stmt_add(CNID_sqlite_private * db)
 	char *sql = NULL;
 
 	EC_ZERO(sqlite3_finalize(db->cnid_add_stmt));
-	EC_NEG1(asprintf(&sql,
+	EC_NEG1(ret = asprintf(&sql,
 			 "INSERT INTO `%s` (Name,Did,DevNo,InodeNo) VALUES(?,?,?,?,?)",
 			 db->cnid_sqlite_voluuid_str) );
 
@@ -335,7 +291,7 @@ int cnid_sqlite_update(struct _cnid_db *cdb,
 			 db->cnid_sqlite_voluuid_str, dev, ino));
 
 		stmt_param_id = ntohl(id);
-		strncpy(stmt_param_name, name, sizeof(stmt_param_name));
+		strncpy(stmt_param_name, name, sizeof(stmt_param_name)-1);
 		stmt_param_name_len = len;
 		stmt_param_did = ntohl(did);
 		stmt_param_dev = dev;
@@ -372,8 +328,6 @@ cnid_t cnid_sqlite_lookup(struct _cnid_db *cdb,
 	bool have_result = false;
 	uint64_t dev = st->st_dev;
 	uint64_t ino = st->st_ino;
-	cnid_t hint = db->cnid_sqlite_hint;
-
 
 	if (!cdb || !(db = cdb->_private) || !st || !name) {
 		LOG(log_error, logtype_cnid,
@@ -390,10 +344,10 @@ cnid_t cnid_sqlite_lookup(struct _cnid_db *cdb,
 	}
 
 	LOG(log_maxdebug, logtype_cnid,
-	    "cnid_sqlite_lookup(did: %" PRIu32 ", name: \"%s\", hint: %"
-	    PRIu32 "): START", ntohl(did), name, ntohl(hint));
+	    "cnid_sqlite_lookup(did: %" PRIu32 ", name: \"%s\"): START",
+	     ntohl(did), name);
 
-	strncpy(stmt_param_name, name, sizeof(stmt_param_name));
+	strncpy(stmt_param_name, name, sizeof(stmt_param_name)-1);
 	stmt_param_name_len = len;
 	stmt_param_did = ntohl(did);
 	stmt_param_dev = dev;
@@ -405,7 +359,6 @@ cnid_t cnid_sqlite_lookup(struct _cnid_db *cdb,
 	char *retname;
 	int sqlite_return;
 
-      exec_stmt:
 	sqlite_return = sqlite3_step(stmt);
 	if (sqlite_return == SQLITE_DONE) {
 		/* not found (no rows) */
@@ -418,7 +371,7 @@ cnid_t cnid_sqlite_lookup(struct _cnid_db *cdb,
 	/* got at least one row, store result in lookup_result_X */
 	lookup_result_id = sqlite3_column_int64(stmt, 1);
 	lookup_result_did = sqlite3_column_int64(stmt, 2);
-	snprintf(lookup_result_name, MAXPATHLEN-1, sqlite3_column_text(stmt, 3));
+	snprintf(lookup_result_name, MAXPATHLEN-1, (const char *)sqlite3_column_text(stmt, 3));
 	lookup_result_name_len = strlen(lookup_result_name);
 	lookup_result_dev = sqlite3_column_int64(stmt, 4);
 	lookup_result_ino = sqlite3_column_int64(stmt, 5);
@@ -457,21 +410,10 @@ cnid_t cnid_sqlite_lookup(struct _cnid_db *cdb,
 
 	if (retdid != did || STRCMP(retname, !=, name)) {
 		LOG(log_debug, logtype_cnid,
-		    "cnid_sqlite_lookup(CNID hint: %" PRIu32 ", DID: %"
+		    "cnid_sqlite_lookup(CNID %" PRIu32 ", DID: %"
 		    PRIu32
 		    ", name: \"%s\"): server side mv oder reused inode",
-		    ntohl(hint), ntohl(did), name);
-		if (hint != retid) {
-			if (cnid_sqlite_delete(cdb, retid) != 0) {
-				LOG(log_error, logtype_cnid,
-				    "sqlite query error: %s",
-				    sqlite3_errmsg(db->cnid_sqlite_con));
-				errno = CNID_ERR_DB;
-				EC_FAIL;
-			}
-			errno = CNID_INVALID;
-			EC_FAIL;
-		}
+		    ntohl(did), name);
 		LOG(log_debug, logtype_cnid,
 		    "cnid_sqlite_lookup: server side mv, got hint, updating");
 		if (cnid_sqlite_update(cdb, retid, st, did, name, len) != 0) {
@@ -563,7 +505,7 @@ cnid_t cnid_sqlite_add(struct _cnid_db *cdb,
 				stmt_param_id = ntohl(db->cnid_sqlite_hint);
 			}
 			strncpy(stmt_param_name, name,
-				sizeof(stmt_param_name));
+				sizeof(stmt_param_name)-1);
 			stmt_param_name_len = len;
 			stmt_param_did = ntohl(did);
 			stmt_param_dev = dev;
@@ -654,7 +596,7 @@ cnid_t cnid_sqlite_get(struct _cnid_db *cdb, const cnid_t did, char *name,
 	    "cnid_sqlite_get(did: %" PRIu32 ", name: \"%s\"): START",
 	    ntohl(did), name);
 
-        EC_NEG1(asprintf
+        EC_NEG1(ret = asprintf
                 (&sql,
 		  "SELECT Id FROM `%s` WHERE Name='%s' AND Did=?",
 		  db->cnid_sqlite_voluuid_str, name) );
@@ -699,7 +641,7 @@ char *cnid_sqlite_resolve(struct _cnid_db *cdb, cnid_t * id, void *buffer,
 		EC_FAIL;
 	}
 
-        EC_NEG1(asprintf
+        EC_NEG1(ret = asprintf
                 (&sql,
 		  "SELECT Did,Name FROM `%s` WHERE Id=?",
 		  db->cnid_sqlite_voluuid_str) );
@@ -714,7 +656,7 @@ char *cnid_sqlite_resolve(struct _cnid_db *cdb, cnid_t * id, void *buffer,
         }
 
         *id = htonl(sqlite3_column_int64(transient_stmt, 1));
-	strncpy(buffer, sqlite3_column_text(transient_stmt, 2), len);
+	strncpy(buffer, (const char *)sqlite3_column_text(transient_stmt, 2), len);
 
       EC_CLEANUP:
 	if (transient_stmt)
@@ -766,7 +708,7 @@ int cnid_sqlite_getstamp(struct _cnid_db *cdb, void *buffer,
                 EC_FAIL;
         }
 
-        strncpy(buffer, sqlite3_column_text(transient_stmt, 1), len);
+        strncpy(buffer, (const char *)sqlite3_column_text(transient_stmt, 1), len);
 
       EC_CLEANUP:
 	if (transient_stmt)
@@ -853,22 +795,6 @@ static struct _cnid_db *cnid_sqlite_new(const char *volpath)
 	return cdb;
 }
 
-/* Return allocated UUID string with dashes stripped */
-static char *uuid_strip_dashes(const char *uuid)
-{
-	static char stripped[33];
-	int i = 0;
-
-	while (*uuid && i < 32) {
-		if (*uuid != '-') {
-			stripped[i++] = *uuid;
-		}
-		uuid++;
-	}
-	stripped[i] = 0;
-	return strdup(stripped);
-}
-
 /* ---------------------- */
 struct _cnid_db *cnid_sqlite_open(struct cnid_open_args *args)
 {
@@ -876,7 +802,6 @@ struct _cnid_db *cnid_sqlite_open(struct cnid_open_args *args)
 	CNID_sqlite_private *db = NULL;
 	struct _cnid_db *cdb = NULL;
 	char *sql = NULL;
-	u_int64_t row;
 	const char *vol = args->dir;
 
 	EC_NULL(cdb = cnid_sqlite_new(vol));

@@ -1,6 +1,6 @@
 # Makefile.am for libatalk/cnid/
 
-SUBDIRS = last dbd
+SUBDIRS = last dbd sqlite
 
 noinst_LTLIBRARIES = libcnid.la
 LIBCNID_DEPS = dbd/libcnid_dbd.la

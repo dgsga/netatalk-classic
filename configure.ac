@@ -639,6 +639,7 @@ AC_OUTPUT([Makefile
 	libatalk/cnid/Makefile
 	libatalk/cnid/last/Makefile
 	libatalk/cnid/dbd/Makefile
+	libatalk/cnid/sqlite/Makefile
 	libatalk/nbp/Makefile
 	libatalk/netddp/Makefile
 	libatalk/util/Makefile
