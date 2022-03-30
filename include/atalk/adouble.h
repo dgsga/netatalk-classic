@@ -254,6 +254,7 @@ struct adouble {
     int                 ad_m_namelen;
     struct adouble_fops *ad_ops;
     u_int16_t       ad_open_forks;      /* open forks (by others) */
+    size_t              valid_data_len;	   /* Bytes read into ad_data */
 
 #ifdef USE_MMAPPED_HEADERS
     char                *ad_data;
@@ -408,7 +409,6 @@ struct adouble_fops {
 #define ad_getentrylen(ad,eid)     ((ad)->ad_eid[(eid)].ade_len)
 #define ad_setentrylen(ad,eid,len) ((ad)->ad_eid[(eid)].ade_len = (len))
 #define ad_getentryoff(ad,eid)     ((ad)->ad_eid[(eid)].ade_off)
-#define ad_entry(ad,eid)           ((caddr_t)(ad)->ad_data + (ad)->ad_eid[(eid)].ade_off)
 
 #define ad_get_HF_flags(ad) ((ad)->ad_resource_fork.adf_flags)
 #define ad_get_MD_flags(ad) ((ad)->ad_md->adf_flags)
@@ -440,6 +440,7 @@ extern int ad_excl_lock     (struct adouble * /*adp*/, const u_int32_t /*eid*/);
 #define ad_unlock ad_fcntl_unlock
 
 /* ad_open.c */
+extern void *ad_entry     (const struct adouble *ad, int eid);
 extern int ad_setfuid     (const uid_t );
 extern uid_t ad_getfuid   (void );
 extern char *ad_dir       (const char *);
