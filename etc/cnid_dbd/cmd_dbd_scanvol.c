@@ -940,8 +940,13 @@ static cnid_t check_cnid(const char *name, cnid_t did, struct stat *st,
 						strerror(errno));
 					return CNID_INVALID;
 				}
-				ad_setid(&ad, st->st_dev, st->st_ino,
-					 db_cnid, did, stamp);
+                ret = ad_setid( &ad, st->st_dev, st->st_ino, db_cnid, did, stamp);
+                if (ret == -1) {
+                    dbd_log(LOGSTD, "Error setting new CNID, malformed adouble: '%s/%s'",
+                            cwdbuf, name);
+                    ad_close(&ad, ADFLAGS_HF);
+                    return CNID_INVALID;
+                }
 				ad_flush(&ad);
 				ad_close_metadata(&ad);
 			}
