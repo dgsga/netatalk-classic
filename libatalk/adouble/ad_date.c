@@ -6,6 +6,7 @@
 int ad_setdate(struct adouble *ad, unsigned int dateoff, u_int32_t date)
 {
 	int xlate = (dateoff & AD_DATE_UNIX);
+    char *ade = NULL;
 
 	dateoff &= AD_DATE_MASK;
 	if (xlate)
@@ -18,8 +19,11 @@ int ad_setdate(struct adouble *ad, unsigned int dateoff, u_int32_t date)
 
 		if (dateoff > AD_DATE_BACKUP)
 			return -1;
-		memcpy(ad_entry(ad, ADEID_FILEI) + dateoff, &date,
-		       sizeof(date));
+        ade = ad_entry(ad, ADEID_FILEI);
+        if (ade == NULL) {
+            return -1;
+        }
+        memcpy(ade + dateoff, &date, sizeof(date));
 
 	} else if (ad->ad_version == AD_VERSION2) {
 		if (!ad_getentryoff(ad, ADEID_FILEDATESI))
@@ -27,8 +31,12 @@ int ad_setdate(struct adouble *ad, unsigned int dateoff, u_int32_t date)
 
 		if (dateoff > AD_DATE_ACCESS)
 			return -1;
-		memcpy(ad_entry(ad, ADEID_FILEDATESI) + dateoff, &date,
-		       sizeof(date));
+
+        ade = ad_entry(ad, ADEID_FILEDATESI);
+        if (ade == NULL) {
+            return -1;
+        }
+        memcpy(ade + dateoff, &date, sizeof(date));
 
 	} else
 		return -1;
@@ -40,6 +48,7 @@ int ad_getdate(const struct adouble *ad,
 	       unsigned int dateoff, u_int32_t * date)
 {
 	int xlate = (dateoff & AD_DATE_UNIX);
+    char *ade = NULL;
 
 	dateoff &= AD_DATE_MASK;
 	if (ad->ad_version == AD_VERSION1) {
@@ -47,8 +56,12 @@ int ad_getdate(const struct adouble *ad,
 			return -1;
 		if (!ad_getentryoff(ad, ADEID_FILEI))
 			return -1;
-		memcpy(date, ad_entry(ad, ADEID_FILEI) + dateoff,
-		       sizeof(u_int32_t));
+
+        ade = ad_entry(ad, ADEID_FILEI);
+        if (ade == NULL) {
+            return -1;
+        }
+        memcpy(date, ade + dateoff, sizeof(u_int32_t));
 
 	} else if (ad->ad_version == AD_VERSION2) {
 		if (!ad_getentryoff(ad, ADEID_FILEDATESI))
@@ -56,8 +69,12 @@ int ad_getdate(const struct adouble *ad,
 
 		if (dateoff > AD_DATE_ACCESS)
 			return -1;
-		memcpy(date, ad_entry(ad, ADEID_FILEDATESI) + dateoff,
-		       sizeof(u_int32_t));
+
+        ade = ad_entry(ad, ADEID_FILEDATESI);
+        if (ade == NULL) {
+            return -1;
+        }
+        memcpy(date, ade + dateoff, sizeof(uint32_t));
 
 	} else
 		return -1;

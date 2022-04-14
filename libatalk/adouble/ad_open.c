@@ -165,22 +165,22 @@ static u_int32_t get_eid(struct adouble *ad, u_int32_t eid)
 
 #define DISK_EID(ad, a) get_eid(ad, a)
 
-static const struct entry entry_order2[ADEID_NUM_V2 + 1] = {
-	{ ADEID_NAME, ADEDOFF_NAME_V2, ADEDLEN_INIT },
-	{ ADEID_COMMENT, ADEDOFF_COMMENT_V2, ADEDLEN_INIT },
-	{ ADEID_FILEDATESI, ADEDOFF_FILEDATESI, ADEDLEN_FILEDATESI },
-	{ ADEID_FINDERI, ADEDOFF_FINDERI_V2, ADEDLEN_FINDERI },
-	{ ADEID_DID, ADEDOFF_DID, ADEDLEN_DID },
-	{ ADEID_AFPFILEI, ADEDOFF_AFPFILEI, ADEDLEN_AFPFILEI },
-	{ ADEID_SHORTNAME, ADEDOFF_SHORTNAME, ADEDLEN_INIT },
-	{ ADEID_PRODOSFILEI, ADEDOFF_PRODOSFILEI, ADEDLEN_PRODOSFILEI },
-	{ ADEID_PRIVDEV, ADEDOFF_PRIVDEV, ADEDLEN_INIT },
-	{ ADEID_PRIVINO, ADEDOFF_PRIVINO, ADEDLEN_INIT },
-	{ ADEID_PRIVSYN, ADEDOFF_PRIVSYN, ADEDLEN_INIT },
-	{ ADEID_PRIVID, ADEDOFF_PRIVID, ADEDLEN_INIT },
-	{ ADEID_RFORK, ADEDOFF_RFORK_V2, ADEDLEN_INIT },
+static const struct entry entry_order2[ADEID_NUM_V2 +1] = {
+    { ADEID_NAME, ADEDOFF_NAME_V2, ADEDLEN_INIT },
+    { ADEID_COMMENT, ADEDOFF_COMMENT_V2, ADEDLEN_COMMENT },
+    { ADEID_FILEDATESI, ADEDOFF_FILEDATESI, ADEDLEN_FILEDATESI },
+    { ADEID_FINDERI, ADEDOFF_FINDERI_V2, ADEDLEN_FINDERI },
+    { ADEID_DID, ADEDOFF_DID, ADEDLEN_DID },
+    { ADEID_AFPFILEI, ADEDOFF_AFPFILEI, ADEDLEN_AFPFILEI },
+    { ADEID_SHORTNAME, ADEDOFF_SHORTNAME, ADEDLEN_INIT },
+    { ADEID_PRODOSFILEI, ADEDOFF_PRODOSFILEI, ADEDLEN_PRODOSFILEI },
+    { ADEID_PRIVDEV,     ADEDOFF_PRIVDEV, ADEDLEN_PRIVDEV },
+    { ADEID_PRIVINO,     ADEDOFF_PRIVINO, ADEDLEN_PRIVINO },
+    { ADEID_PRIVSYN,     ADEDOFF_PRIVSYN, ADEDLEN_PRIVSYN },
+    { ADEID_PRIVID,     ADEDOFF_PRIVID, ADEDLEN_PRIVID },
+    { ADEID_RFORK, ADEDOFF_RFORK_V2, ADEDLEN_INIT },
 
-	{ 0, 0, 0 }
+    {0, 0, 0}
 };
 
 /* OS X adouble finder info and resource fork only
@@ -1806,6 +1806,7 @@ static int new_rfork(const char *path, struct adouble *ad, int adflags)
 	const struct entry *eid;
 	u_int16_t ashort;
 	struct stat st;
+    char *ade = NULL;
 
 	ad->ad_magic = AD_MAGIC;
 	ad->ad_version = ad->ad_flags & 0x0f0000;
@@ -1840,8 +1841,11 @@ static int new_rfork(const char *path, struct adouble *ad, int adflags)
 		ashort = htons(ATTRBIT_INVISIBLE);
 		ad_setattr(ad, ashort);
 		ashort = htons(FINDERINFO_INVISIBLE);
-		memcpy(ad_entry(ad, ADEID_FINDERI) + FINDERINFO_FRFLAGOFF,
-		       &ashort, sizeof(ashort));
+        ade = ad_entry(ad, ADEID_FINDERI);
+        if (ade == NULL) {
+            return -1;
+        }
+        memcpy(ade + FINDERINFO_FRFLAGOFF, &ashort, sizeof(ashort));
 	}
 
 	if (ostat(path, &st, ad_get_syml_opt(ad)) < 0) {

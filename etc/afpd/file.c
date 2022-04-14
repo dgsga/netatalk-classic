@@ -306,6 +306,7 @@ int getmetadata(struct vol *vol,
 {
 	char *data, *l_nameoff = NULL, *upath;
 	char *utf_nameoff = NULL;
+    char *ade = NULL;
 	int bit = 0;
 	u_int32_t aint;
 	cnid_t id = 0;
@@ -523,7 +524,10 @@ int getmetadata(struct vol *vol,
 			   <shirsch@adelphia.net> */
 		case FILPBIT_PDINFO:
 			if (adp) {
-				memcpy(fdType, ad_entry(adp, ADEID_FINDERI), 4);
+                ade = ad_entry(adp, ADEID_FINDERI);
+                AFP_ASSERT(ade != NULL);
+
+                memcpy(fdType, ade, 4);
 
 				if (memcmp(fdType, "TEXT", 4) == 0) {
 					achar = '\x04';
@@ -848,6 +852,7 @@ int setfilparams(struct vol *vol,
 	struct extmap *em;
 	int bit, isad = 1, err = AFP_OK;
 	char *upath;
+    char *ade = NULL;
 	u_int8_t achar, xyy[4];
 	u_int8_t *fdType = NULL;	/* "uninitialized, OK 310105" -- yeah, no */
 	u_int16_t ashort = 0;
@@ -1019,7 +1024,9 @@ int setfilparams(struct vol *vol,
 			ad_setdate(adp, AD_DATE_BACKUP, bdate);
 			break;
 		case FILPBIT_FINFO:
-			if (default_type(ad_entry(adp, ADEID_FINDERI))
+            ade = ad_entry(adp, ADEID_FINDERI);
+            AFP_ASSERT(ade != NULL);
+            if (default_type(ade)
 			    && (((em = getextmap(path->m_name)) &&
 				 !memcmp(finder_buf, em->em_type,
 					 sizeof(em->em_type))
@@ -1034,12 +1041,13 @@ int setfilparams(struct vol *vol,
 			    )) {
 				memcpy(finder_buf, ufinderi, 8);
 			}
-			memcpy(ad_entry(adp, ADEID_FINDERI), finder_buf,
-			       32);
+			memcpy(ade, finder_buf, 32);
 			break;
 		case FILPBIT_PDINFO:
-			memcpy(ad_entry(adp, ADEID_FINDERI), fdType, 4);
-			memcpy(ad_entry(adp, ADEID_FINDERI) + 4, "pdos", 4);
+            ade = ad_entry(adp, ADEID_FINDERI);
+            AFP_ASSERT(ade != NULL);
+			memcpy(ade, fdType, 4);
+			memcpy(ade + 4, "pdos", 4);
 			break;
 		default:
 			err = AFPERR_BITMAP;
