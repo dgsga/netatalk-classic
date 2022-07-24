@@ -2,7 +2,7 @@
 
 noinst_LTLIBRARIES = libutil.la
 
-AM_CFLAGS = -I$(top_srcdir)/sys
+AM_CFLAGS = -I$(top_srcdir)/sys -Wno-use-after-free
 
 libutil_la_SOURCES = \
 	atalk_addr.c	\

@@ -1,6 +1,6 @@
 # Makefile.am for bin/psorder
 
-AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/sys
+AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/sys -Wno-use-after-free
 
 bin_PROGRAMS = psorder
 

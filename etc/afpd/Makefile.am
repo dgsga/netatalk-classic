@@ -40,6 +40,7 @@ afpd_LDADD =  \
 afpd_LDFLAGS = -export-dynamic 
 
 afpd_CFLAGS = \
+	-Wno-use-after-free \
 	-I$(top_srcdir)/include \
 	-I$(top_srcdir)/sys \
 	-DAPPLCNAME \
