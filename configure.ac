@@ -9,14 +9,10 @@ AC_CONFIG_MACRO_DIRS([macros])
 AM_MAINTAINER_MODE([enable])
 
 dnl Checks for programs.
-AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LN_S
-AC_PROG_MAKE_SET
 LT_INIT([dlopen])
-AC_PROG_GREP
-AC_PROG_PS
 
 AM_PROG_CC_C_O
 
@@ -185,9 +181,6 @@ AC_CHECK_ICONV
 dnl Check for CNID database backends
 bdb_required=no
 AC_NETATALK_CNID([bdb_required=yes],[bdb_required=no])
-
-dnl Check for quota support
-AC_CHECK_QUOTA
 
 dnl Check for PAM libs
 netatalk_cv_use_pam=no
