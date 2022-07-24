@@ -1,5 +1,4 @@
 Makefile
-Makefile.in
 adv1tov2
 .deps
 .libs

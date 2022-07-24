@@ -1,7 +1,6 @@
 Makefile
-Makefile.in
 *.lo
 *.la
 .deps
 .libs
-nbp_lkup.o nbp_rgstr.o nbp_unrgstr.o nbp_util.o
+*.o

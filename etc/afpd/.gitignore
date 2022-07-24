@@ -1,5 +1,4 @@
 Makefile
-Makefile.in
 afpd
 fce
 hash

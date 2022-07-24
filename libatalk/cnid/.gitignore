@@ -1,7 +1,6 @@
 Makefile
-Makefile.in
 *.lo
 *.la
 .deps
 .libs
-cnid_init.o cnid.o
+*.o

@@ -1,8 +1,7 @@
 Makefile
-Makefile.in
 *.lo
 *.la
 .deps
 .libs
 .gitignore
-cnid_last.o
+*.o

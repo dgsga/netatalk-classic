@@ -1,5 +1,4 @@
 Makefile
-Makefile.in
 pap
 papstatus
 .deps

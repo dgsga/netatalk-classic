@@ -1,5 +1,4 @@
 Makefile
-Makefile.in
 apple_cleanup
 apple_cp
 apple_mv
