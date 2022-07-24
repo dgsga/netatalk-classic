@@ -81,8 +81,10 @@ fi
 AC_SUBST(PTHREAD_LIBS)
 AC_CACHE_SAVE
 
-dnl Checks for (v)snprintf
-NETATALK_SNPRINTF_CHECK
+dnl originally in macros/snrpintf-check.m4
+AC_CHECK_FUNCS(snprintf vsnprintf)
+AC_CHECK_HEADERS(stdarg.h varargs.h)
+AC_CHECK_FUNCS(strerror)
 
 dnl --------------------------------------------------------------------------
 dnl 64bit platform check
