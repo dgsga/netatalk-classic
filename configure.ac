@@ -21,14 +21,9 @@ AC_PROG_PS
 AM_PROG_CC_C_O
 
 dnl Checks for header files.
-AC_HEADER_DIRENT
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(fcntl.h limits.h stdint.h strings.h time.h sys/param.h sys/fcntl.h sys/file.h sys/ioctl.h sys/time.h sys/mnttab.h sys/statvfs.h sys/stat.h sys/vfs.h mntent.h syslog.h unistd.h termios.h sys/termios.h netdb.h sgtty.h ufs/quota.h mount.h statfs.h sys/types.h dlfcn.h errno.h sys/errno.h sys/uio.h langinfo.h locale.h sys/filio.h)
-AC_CHECK_HEADERS([sys/mount.h], , , 
-[#ifdef HAVE_SYS_PARAM_H
-#include <sys/param.h>
-#endif
-])
+AC_CHECK_HEADERS(sys/mount.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -58,15 +53,10 @@ AC_FUNC_MEMCMP
 AC_HEADER_MAJOR
 AC_FUNC_MMAP
 AC_FUNC_UTIME_NULL
-AC_CHECK_FUNCS(getcwd gethostname gettimeofday getusershell mkdir rmdir select socket strdup strcasestr strstr strtoul strchr memcpy)
-AC_CHECK_FUNCS(backtrace_symbols setlocale nl_langinfo strlcpy strlcat setlinebuf dirfd pselect access pread pwrite)
-AC_CHECK_FUNCS(waitpid getcwd strdup strndup strnlen strtoul strerror chown fchown chmod fchmod chroot link mknod mknod64)
+AC_CHECK_FUNCS(strcasestr)
+AC_CHECK_FUNCS(backtrace_symbols nl_langinfo strlcpy strlcat setlinebuf dirfd pselect pread pwrite)
+AC_CHECK_FUNCS(strerror fchown)
 ac_neta_haveatfuncs=yes
-AC_CHECK_FUNCS(openat renameat fstatat unlinkat, , ac_neta_haveatfuncs=no)
-if test x"$ac_neta_haveatfuncs" = x"yes" ; then
-   AC_DEFINE([_ATFILE_SOURCE], 1, AT file source)
-   AC_DEFINE([HAVE_ATFUNCS], 1, whether at funcs are available)
-fi
 
 AC_CHECK_MEMBERS(struct tm.tm_gmtoff,,, [#include <time.h>])
 
@@ -375,16 +365,11 @@ case "$host_cpu" in
 	powerpc|ppc)			this_cpu=ppc ;;
 esac
 
-dnl --------------------- GNU source
-case "$this_os" in
-	linux)	AC_DEFINE(_GNU_SOURCE, 1, [Whether to use GNU libc extensions])
-        ;;
-esac
-
 dnl --------------------- operating system specific flags (port from sys/*)
 
 dnl ----- Linux specific -----
 if test x"$this_os" = "xlinux"; then 
+	AC_DEFINE(_GNU_SOURCE, 1, [Whether to use GNU libc extensions])
 	AC_MSG_RESULT([ * Linux specific configuration])
 	
 	dnl ----- kernel 2.6 changed struct at_addr to atalk_addr
@@ -516,39 +501,39 @@ AC_CHECK_HEADERS(sys/attributes.h attr/xattr.h sys/xattr.h sys/extattr.h sys/uio
 
 case "$this_os" in
   *)
-	AC_SEARCH_LIBS(getxattr, [attr])
+   	AC_SEARCH_LIBS(getxattr, [attr])
 
     if test "x$neta_cv_eas_sys_found" != "xyes" ; then
        AC_CHECK_FUNCS([getxattr lgetxattr fgetxattr listxattr llistxattr],
                       [neta_cv_eas_sys_found=yes],
                       [neta_cv_eas_sys_not_found=yes])
-	   AC_CHECK_FUNCS([flistxattr removexattr lremovexattr fremovexattr],,
-                      [neta_cv_eas_sys_not_found=yes])
-	   AC_CHECK_FUNCS([setxattr lsetxattr fsetxattr],,
+	  AC_CHECK_FUNCS([flistxattr removexattr lremovexattr fremovexattr],,
+                     [neta_cv_eas_sys_not_found=yes])
+          AC_CHECK_FUNCS([setxattr lsetxattr fsetxattr],,
                       [neta_cv_eas_sys_not_found=yes])
     fi
 
     if test "x$neta_cv_eas_sys_found" != "xyes" ; then
-	   AC_CHECK_FUNCS([getea fgetea lgetea listea flistea llistea],
+          AC_CHECK_FUNCS([getea fgetea lgetea listea flistea llistea],
                       [neta_cv_eas_sys_found=yes],
                       [neta_cv_eas_sys_not_found=yes])
-	   AC_CHECK_FUNCS([removeea fremoveea lremoveea setea fsetea lsetea],,
-                      [neta_cv_eas_sys_not_found=yes])
+          AC_CHECK_FUNCS([removeea fremoveea lremoveea setea fsetea lsetea],,
+                     [neta_cv_eas_sys_not_found=yes])
     fi
 
     if test "x$neta_cv_eas_sys_found" != "xyes" ; then
-	   AC_CHECK_FUNCS([attr_get attr_list attr_set attr_remove],,
+          AC_CHECK_FUNCS([attr_get attr_list attr_set attr_remove],,
                       [neta_cv_eas_sys_not_found=yes])
        AC_CHECK_FUNCS([attr_getf attr_listf attr_setf attr_removef],,
                       [neta_cv_eas_sys_not_found=yes])
-    fi
+   fi
   ;;
 esac
 
 if test "x$neta_cv_eas_sys_found" = "xyes" ; then
    if test "x$neta_cv_eas_sys_not_found" != "xyes" ; then
       neta_cv_eas="$neta_cv_eas | sys"
-   fi
+  fi
 fi
 AC_DEFINE_UNQUOTED(EA_MODULES,["$neta_cv_eas"],[Available Extended Attributes modules])
 
