@@ -9,14 +9,7 @@ mkinstalldirs
 aclocal.m4
 autom4te.cache
 autoscan.log
-*.rpm
-*.deb
-*.dsc
-*.changes
-*.tar.gz
-*.diff.gz
 *~
 *.o
-test-driver
 patches
 **/.AppleDouble/**
