@@ -8,7 +8,7 @@ rm -rf autom4te*.cache
 aclocal -I macros $ACLOCAL_FLAGS || exit 1
 autoheader || exit 1
 libtoolize --force --copy
-automake --include-deps --add-missing --foreign --copy || exit 1
+automake --include-deps --add-missing --copy || exit 1
 autoconf || exit 1
 
 # Original configure call was:

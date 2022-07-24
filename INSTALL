@@ -1,0 +1,7 @@
+* Execute ./bootstrap in the top directory.  You'll need automake, autoconf, and libtool (at least) on top of a working toolchain.
+
+* ./configure [options].  NetBSD users will probably want "--prefix=/usr/pkg".
+
+* make; make install.
+
+* For now, use whichever init files your distribution uses for netatalk-2.2.x.  In the near future, working systemd unit files will be installed if the build framework detects /usr/lib/systemd/system
