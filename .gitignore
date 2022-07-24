@@ -1,14 +1,10 @@
 Makefile
-Makefile.in
 stamp-h
 stamp-h1
 stamp-h.in
 confdefs.h
 configure.lineno
 configure.scan
-depcomp
-compile
-missing
 mkinstalldirs
 aclocal.m4
 autom4te.cache
