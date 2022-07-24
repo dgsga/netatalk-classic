@@ -281,7 +281,7 @@ static char *volxlate(AFPObj * obj,
 				q = obj->options.server;
 			} else
 				q = obj->options.hostname;
-		} else if (obj->username && is_var(p, "$u")) {
+		} else if ( (strlen(obj->username) > 0) && is_var(p, "$u")) {
 			if (afpmaster && xlatevolname)
 				return NULL;
 			char *sep = NULL;
@@ -1189,7 +1189,7 @@ static int readvolfile(AFPObj * obj, struct afp_volume_name *p1, char *p2,
 			/* send path through variable substitution */
 			if (*path != '~')	/* need to copy path to tmp */
 				strcpy(tmp, path);
-			if (!pwent && obj->username)
+			if (!pwent && (strlen(obj->username) > 0) )
 				pwent = getpwnam(obj->username);
 
 			if (volxlate
@@ -1419,7 +1419,9 @@ static int getvolparams(u_int16_t bitmap, struct vol *vol, struct stat *st,
 	int bit = 0, isad = 1;
 	u_int32_t aint;
 	u_int16_t ashort;
-	u_int32_t bfree, btotal, bsize;
+	u_int32_t bfree = 0;
+	u_int32_t btotal = 0;
+	u_int32_t bsize = 0;
 	VolSpace xbfree, xbtotal;	/* extended bytes */
 	char *data, *nameoff = NULL;
 	char *slash;
