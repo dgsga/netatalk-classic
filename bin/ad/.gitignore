@@ -1,5 +1,1 @@
-Makefile
 ad
-.deps
-.libs
-*.o

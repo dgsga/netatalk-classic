@@ -1,4 +1,3 @@
-Makefile
 apple_cleanup
 apple_cp
 apple_mv
@@ -8,4 +7,3 @@ netatalkshorternamelinks.pl
 lp2pap.sh
 asip-status.pl
 apple_dump
-*.o

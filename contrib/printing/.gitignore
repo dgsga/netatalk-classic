@@ -1,5 +1,1 @@
-Makefile
 timeout
-.deps
-.libs
-*.o

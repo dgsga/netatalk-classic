@@ -1,5 +1,1 @@
-Makefile
 timelord
-.deps
-.libs
-*.o

@@ -1,5 +1,1 @@
-Makefile
 getzones
-.deps
-.libs
-getzones.o

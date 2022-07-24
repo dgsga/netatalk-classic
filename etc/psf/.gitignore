@@ -1,6 +1,2 @@
-Makefile
 psf
 psa
-.deps
-.libs
-psa.o psf.o

@@ -10,6 +10,9 @@ aclocal.m4
 autom4te.cache
 autoscan.log
 *~
-*.o
 patches
 **/.AppleDouble/**
+**/*.[13458]
+**/*.{la,lo,loT,o}
+**/Makefile
+**/{.deps,.libs}

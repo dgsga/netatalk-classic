@@ -1,5 +1,1 @@
-Makefile
 uniconv
-.deps
-.libs
-iso8859_1_adapted.o uniconv.o

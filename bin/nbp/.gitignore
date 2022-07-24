@@ -1,7 +1,3 @@
-Makefile
 nbplkup
 nbprgstr
 nbpunrgstr
-.deps
-.libs
-nbplkup.o nbprgstr.o nbpunrgstr.o

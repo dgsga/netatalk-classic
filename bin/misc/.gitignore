@@ -1,8 +1,4 @@
-Makefile
 netacnv
 afpldaptest
 fce
 logger_test
-.deps
-.libs
-*.o
