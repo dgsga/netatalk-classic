@@ -363,7 +363,7 @@ dnl --------------------- operating system specific flags (port from sys/*)
 dnl ----- Linux specific -----
 if test x"$this_os" = "xlinux"; then 
 	AC_DEFINE(_GNU_SOURCE, 1, [Whether to use GNU libc extensions])
-	AC_MSG_RESULT([ * Linux specific configuration])
+	AC_MSG_RESULT([Linux-specific configuration])
 	
 	dnl ----- kernel 2.6 changed struct at_addr to atalk_addr
 	AC_MSG_CHECKING([for struct atalk_addr])
@@ -385,11 +385,11 @@ if test "x$ac_have_atalk_addr" = "xyes"; then
 	AC_DEFINE(HAVE_ATALK_ADDR, 1, [set if struct at_addr is called atalk_addr])
 fi
 
+AC_MSG_RESULT([End Linux-specific configuration])
 fi
 
 dnl ----- NetBSD specific -----
 if test x"$this_os" = "xnetbsd"; then 
-	AC_MSG_RESULT([ * NetBSD specific configuration])
 	AC_DEFINE(BSD4_4, 1, [BSD compatiblity macro])
 	AC_DEFINE(NETBSD, 1, [Define if OS is NetBSD])
 	AC_DEFINE(OPEN_NOFOLLOW_ERRNO, EFTYPE, errno returned by open with O_NOFOLLOW)

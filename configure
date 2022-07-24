@@ -16146,8 +16146,8 @@ if test x"$this_os" = "xlinux"; then
 
 printf "%s\n" "#define _GNU_SOURCE 1" >>confdefs.h
 
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result:  * Linux specific configuration" >&5
-printf "%s\n" " * Linux specific configuration" >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: Linux-specific configuration" >&5
+printf "%s\n" "Linux-specific configuration" >&6; }
 
 		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for struct atalk_addr" >&5
 printf %s "checking for struct atalk_addr... " >&6; }
@@ -16189,11 +16189,11 @@ printf "%s\n" "#define HAVE_ATALK_ADDR 1" >>confdefs.h
 
 fi
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: End Linux-specific configuration" >&5
+printf "%s\n" "End Linux-specific configuration" >&6; }
 fi
 
 if test x"$this_os" = "xnetbsd"; then
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result:  * NetBSD specific configuration" >&5
-printf "%s\n" " * NetBSD specific configuration" >&6; }
 
 printf "%s\n" "#define BSD4_4 1" >>confdefs.h
 
