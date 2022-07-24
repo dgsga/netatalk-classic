@@ -28,14 +28,14 @@ dnl	# check for libiconv support
         LDFLAGS="$LDFLAGS $ICONV_LIBS -liconv"
 
 	AC_CACHE_CHECK([for libiconv],netatalk_cv_iconv,[
-          AC_TRY_LINK([
-#include <stdlib.h>
-#include <iconv.h>
-],[
-	iconv_t cd = iconv_open("","");
-        iconv(cd,NULL,NULL,NULL,NULL);
-        iconv_close(cd);
-], netatalk_cv_iconv=yes, netatalk_cv_iconv=no, netatalk_cv_iconv=cross)])
+          AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+		#include <stdlib.h>
+		#include <iconv.h>]],
+	[[iconv_t cd = iconv_open("","");
+          iconv(cd,NULL,NULL,NULL,NULL);
+          iconv_close(cd);]])],
+	[netatalk_cv_iconv=yes],
+	[netatalk_cv_iconv=no]) ])
 
 	if test x"$netatalk_cv_iconv" = x"yes"; then
 	    ICONV_LIBS="$ICONV_LIBS -liconv"
