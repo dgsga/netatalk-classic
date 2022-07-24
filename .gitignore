@@ -15,4 +15,5 @@ patches
 **/*.[13458]
 **/*.{la,lo,loT,o}
 **/Makefile
-**/{.deps,.libs}
+**/.deps
+**/.libs
