@@ -13,7 +13,10 @@ autoscan.log
 patches
 **/.AppleDouble/**
 **/*.[13458]
-**/*.{la,lo,loT,o}
+**/*.la
+**/*.lo
+**/*.loT
+**/*.o
 **/Makefile
 **/.deps
 **/.libs
